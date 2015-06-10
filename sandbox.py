@@ -221,17 +221,37 @@ def run_sandboxed(this, command, allow_parallel=False):
         # environment. so there isn't any leakage of host environment
         # variables here.
         env = os.environ
-        app.log_env(this['log'], argv_to_string(argv))
 
         with open(this['log'], "a") as logfile:
+            chk_faketime = ['sh', '-c',
+                            '[ -f /usr/lib/faketime/libfaketime.so.1 ]']
+            exit_code = executor.run_sandbox_with_redirection(
+                       chk_faketime, stdout=logfile, stderr=sandboxlib.STDOUT,
+                       env=env, **sandbox_config)
+	    print exit_code
+            if exit_code == 0:
+                env['FAKETIME'] = '2015-06-09 00:00:00'
+                app.log(this, 'Using faketime: %s' % env['FAKETIME'])
+
+                # Env var way
+                env['LD_PRELOAD'] = '/usr/lib/faketime/libfaketime.so.1'
+                argv = ['sh', '-c', command]
+
+                # Wrapper util way
+                argv = ['sh', '-c', "faketime -f '2015-06-09 00:00:00' " + command]
+            else:
+                argv = ['sh', '-c', command]
+
+            app.log_env(this['log'], argv_to_string(argv))
+
             exit_code = executor.run_sandbox_with_redirection(
                 argv, stdout=logfile, stderr=sandboxlib.STDOUT,
                 env=env, **sandbox_config)
 
-        if exit_code != 0:
-            app.log(this, 'ERROR: command failed in directory %s:\n\n' %
+            if exit_code != 0:
+                app.log(this, 'ERROR: command failed in directory %s:\n\n' %
                     os.getcwd(), argv_to_string(argv))
-            app.exit(this, 'ERROR: log file is at', this['log'])
+	        app.exit(this, 'ERROR: log file is at', this['log'])
     finally:
         if cur_makeflags is not None:
             os.environ["MAKEFLAGS"] = cur_makeflags
