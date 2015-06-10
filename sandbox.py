@@ -17,6 +17,7 @@
 
 import sandboxlib
 
+import logging
 import os
 import pipes
 import shutil
@@ -170,8 +171,6 @@ def run_sandboxed(this, command, env=None, allow_parallel=False):
             network='isolated',
         )
 
-    argv = ['sh', '-c', command]
-
     cur_makeflags = env.get("MAKEFLAGS")
 
     # Pick the sandboxing backend for the current platform.
@@ -187,21 +186,35 @@ def run_sandboxed(this, command, env=None, allow_parallel=False):
         if not allow_parallel:
             env.pop("MAKEFLAGS", None)
 
-        app.log_env(this['log'], env, argv_to_string(argv))
-
         with open(this['log'], "a") as logfile:
-            exit_code = executor.run_sandbox_with_redirection(
-                argv, stdout=logfile, stderr=sandboxlib.STDOUT,
-                env=env, **sandbox_config)
+	    if check_faketime_exists(this) and this.get('build-mode') != 'bootstrap':
+                env['FAKETIME'] = '2015-06-09 00:00:00'
+	        app.log(this, 'Using faketime: %s' % env['FAKETIME'])
 
-        if exit_code != 0:
-            app.log(this, 'ERROR: command failed in directory %s:\n\n' %
-                    os.getcwd(), argv_to_string(argv))
-            app.exit(this, 'ERROR: log file is at', this['log'])
+		# Env var way
+	        env['LD_PRELOAD'] = 'usr/lib/faketime/libfaketime.so.1'
+	        argv = ['sh', '-c', command]
+	    else:
+		argv = ['sh', '-c', command]
+
+	    app.log_env(this['log'], env, argv_to_string(argv))
+
+	    exit_code = executor.run_sandbox_with_redirection(
+	        argv, stdout=logfile, stderr=sandboxlib.STDOUT,
+		env=env, **sandbox_config)
+	    if exit_code != 0:
+	        app.log(this, 'ERROR: command failed in directory %s:\n\n' %
+	            os.getcwd(), argv_to_string(argv))
+	        app.exit(this, 'ERROR: log file is at', this['log'])
     finally:
         if cur_makeflags is not None:
             env['MAKEFLAGS'] = cur_makeflags
 
+def check_faketime_exists(this):
+    FAKETIME_LIBRARY = 'usr/lib/faketime/libfaketime.so.1'
+    chk_faketime = os.path.exists(os.path.join(this['sandbox'],
+	                                       FAKETIME_LIBRARY))
+    return chk_faketime
 
 def run_logged(this, cmd_list):
     app.log_env(this['log'], os.environ, argv_to_string(cmd_list))

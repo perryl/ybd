@@ -40,6 +40,8 @@ class Definitions():
 
         things_have_changed = not self._check_trees()
         for dirname, dirnames, filenames in os.walk('.'):
+            filenames.sort()
+            dirnames.sort()
             if '.git' in dirnames:
                 dirnames.remove('.git')
             for filename in filenames:

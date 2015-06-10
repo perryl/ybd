@@ -17,6 +17,7 @@
 
 '''A module to build a definition.'''
 
+import logging
 import os
 import sys
 from definitions import Definitions
@@ -27,6 +28,7 @@ import sandbox
 import platform
 
 
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 print('')
 if len(sys.argv) not in [2,3]:
     sys.stderr.write("Usage: %s DEFINITION_FILE [ARCH]\n\n" % sys.argv[0])
