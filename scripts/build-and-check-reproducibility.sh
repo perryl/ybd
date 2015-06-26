@@ -66,8 +66,18 @@ sort -k 2 build2.clean > build2.compare
 `cp diff.compare diff.orig`
 `grep -ve '+++' -e '^\-' diff.orig > diff.compare`
 `sed -re 's%\@@ \-[0-9]+ \+[0-9]+ \@@%%' -e 's%\@@ \-[0-9]+\,[0-9]+ \+[0-9]+\,[0-9]+ \@@%%' -e 's%\+[0-9a-f]+\t%%' diff.compare > diff.clean`
+`comm -1 -2 build1.compare build2.compare > comparison.clean`
 
 echo "Performing cleanup operations..."
 `rm build*.c* build*.orig diff.compare diff.orig`
 
-echo "List of differing components (no shasum) outputted to diff.clean"
+diff_lines=`wc -l < diff.clean`
+clean_lines=`wc -l < comparison.clean`
+total_lines=`wc -l < build1.shasum`
+diff=$( echo $diff_lines/$total_lines*100 | bc -l )
+clean=$( echo $clean_lines/$total_lines*100 | bc -l )
+diff_percent=`LC_ALL=C /usr/bin/printf "%.*f\n" 1 $diff`
+clean_percent=`LC_ALL=C /usr/bin/printf "%.*f\n" 1 $clean`
+
+echo "$clean_percent% of files are bit-for-bit reproducible (same SHA1); these can be found in comparison.clean"
+echo "$diff_percent% of files differ; these can be found in diff.clean"
